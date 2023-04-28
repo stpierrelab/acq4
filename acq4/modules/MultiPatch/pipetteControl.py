@@ -34,6 +34,7 @@ class PipetteControl(Qt.QWidget):
         self.ui.holdingSpin.setOpts(bounds=[None, None], decimals=0, suffix='V', siPrefix=True, step=5e-3, format='{scaledValue:.3g} {siPrefix:s}{suffix:s}')
         self.ui.autoOffsetBtn.clicked.connect(self.autoOffsetRequested)
         self.ui.autoPipCapBtn.clicked.connect(self.autoPipCapRequested)
+        self.ui.autoWholeCellBtn.clicked.connect(self.autoWholeCellRequested)
 
         self.displayWidgets = [
             self.ui.stateText,
@@ -282,6 +283,8 @@ class PipetteControl(Qt.QWidget):
     def brokenCheckChanged(self, checked):
         self.pip.setTipBroken(self.ui.brokenCheck.isChecked())
 
+    def autoWholeCellRequested(self, checked):
+        self.pip.clampDevice.autoWholeCellCompensate()
 
 class MousePressCatch(Qt.QObject):
     sigMousePress = Qt.Signal(object, object)  # receiver, event

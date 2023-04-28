@@ -281,6 +281,10 @@ class MultiClamp(PatchClamp):
             self.mc.autoFastComp()
             self.mc.autoSlowComp()
 
+    def autoWholeCellCompensate(self):
+        with self.dm.reserveDevices([self]):
+            self.mc.autoWholeCellComp()
+
     def listSignals(self, mode):
         return self.mc.listSignals(mode)
         
