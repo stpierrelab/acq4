@@ -13,6 +13,7 @@ def defaultMotionPlanners():
         'search': SearchMotionPlanner,
         'aboveTarget': AboveTargetMotionPlanner,
         'approach': ApproachMotionPlanner,
+        'approachTarget': ApproachTargetPlanner,
         'target': TargetMotionPlanner,
         'idle': IdleMotionPlanner,
     }
@@ -258,7 +259,52 @@ class TargetMotionPlanner(PipetteMotionPlanner):
         stop = self.pip.targetPosition()
         return self.safePath(start, stop, self.speed)
 
+class ApproachTargetPlanner(PipetteMotionPlanner):
+    """Move the pipette tip to be centered over the target in x/y, and 10 um above
+    the sample surface in z. 
 
+    This position is used to recalibrate the pipette immediately before going to cell detect.
+    """
+    def _move(self):
+        pip = self.pip
+        speed = self.speed
+
+        scope = pip.scopeDevice()
+        waypoint1, waypoint2 = self.approachTargetPath()
+
+        path = self.safePath(pip.globalPosition(), waypoint1, speed)
+        path.append((waypoint2, 'slow', True))
+        pfut = pip._movePath(path)
+        sfut = scope.setGlobalPosition(waypoint2)
+
+        return MultiFuture([pfut, sfut])
+
+    def approachTargetPath(self):
+        """Return the path to the "approach target" recalibration position.
+
+        The path has 2 waypoints:
+
+        1. 100 um away from the second waypoint, on a diagonal approach. This is meant to normalize the hysteresis
+           at the second waypoint. 
+        2. This position is centered on the target, a small distance above the sample surface.
+        """
+        pip = self.pip
+        target = pip.targetPosition()
+
+        # first find safe approach location 20 um above surface (or target)
+        scope = pip.scopeDevice()
+        surfaceDepth = scope.getSurfaceDepth()
+        waypoint2 = np.array(target)
+        waypoint2[2] = max(surfaceDepth, target[2]) + 50e-6
+
+        # Need to arrive at this point via approach angle to correct for hysteresis
+        waypoint1 = waypoint2 + pip.globalDirection() * -100e-6
+
+        # Recalibrate at 10 um above surface/target
+        waypoint2[2] = waypoint2[2] - 30e-6
+
+        return waypoint1, waypoint2
+    
 class AboveTargetMotionPlanner(PipetteMotionPlanner):
     """Move the pipette tip to be centered over the target in x/y, and 100 um above
     the sample surface in z. 

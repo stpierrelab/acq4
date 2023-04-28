@@ -326,6 +326,12 @@ class Pipette(Device, OptomechDevice):
     def goAboveTarget(self, speed, **kwds):
         return self.moveTo('aboveTarget', speed=speed, **kwds)
 
+    def goApproachTarget(self, speed, **kwds):
+        """Move the electrode tip such that it is 10um above the target with its
+        axis aligned to the target. 
+        """
+        return self.moveTo('approachTarget', speed=speed, **kwds)
+    
     def _movePath(self, path):
         # move along a path defined in global coordinates. 
         # Format is [(pos, speed, linear), ...]

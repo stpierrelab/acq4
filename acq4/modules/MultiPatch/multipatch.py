@@ -122,14 +122,17 @@ class MultiPatchWindow(Qt.QWidget):
         # self.ui.stepInBtn.clicked.connect(self.stepIn)
         # self.ui.stepOutBtn.clicked.connect(self.stepOut)
         self.ui.aboveTargetBtn.clicked.connect(self.moveAboveTarget)
+        self.ui.approachCellBtn.clicked.connect(self.moveApproachTarget)
         self.ui.approachBtn.clicked.connect(self.moveApproach)
-        self.ui.toTargetBtn.clicked.connect(self.moveToTarget)
+        # self.ui.toTargetBtn.clicked.connect(self.moveToTarget)
         self.ui.homeBtn.clicked.connect(self.moveHome)
         # self.ui.idleBtn.clicked.connect(self.moveIdle)
         self.ui.coarseSearchBtn.clicked.connect(self.coarseSearch)
         self.ui.fineSearchBtn.clicked.connect(self.fineSearch)
         self.ui.hideMarkersBtn.toggled.connect(self.hideBtnToggled)
         self.ui.cellDetectBtn.clicked.connect(self.cellDetectClicked)
+        self.ui.autoCalibrateBtn.clicked.connect(self.autoCalibration)
+        self.ui.getRefFramesBtn.clicked.connect(self.getRefFrames)
         self.ui.sealBtn.clicked.connect(self.sealClicked)
         self.ui.breakInBtn.clicked.connect(self.breakInClicked)
         self.ui.reSealBtn.clicked.connect(self.reSealClicked)
@@ -225,6 +228,13 @@ class MultiPatchWindow(Qt.QWidget):
         for pip in pipDevs:
             pip.goAboveTarget(speed, raiseErrors=True)
 
+    def moveApproachTarget(self):
+        speed = self.selectedSpeed(default='slow')
+        pips = self.selectedPipettes()
+        pipDevs = [p.pipetteDevice if isinstance(p, PatchPipette) else p for p in pips]
+        for pip in pipDevs:
+            pip.goApproachTarget(speed, raiseErrors=True)
+
     def moveApproach(self):
         speed = self.selectedSpeed(default='fast')
         for pip in self.selectedPipettes():
@@ -314,6 +324,20 @@ class MultiPatchWindow(Qt.QWidget):
             pg.disconnect(cammod.window().getView().scene().sigMouseClicked, self.cameraModuleClicked_calibrate)
             self._calibratePips = []
             self._calibrateStagePositions = []
+
+    def autoCalibration(self):
+        pips = self.selectedPipettes()
+        pipDevs = [p.pipetteDevice if isinstance(p, PatchPipette) else p for p in pips]
+        for pip in pipDevs:
+            pip.tracker.autoCalibrate()
+
+    def getRefFrames(self):
+        pips = self.selectedPipettes()
+        pipDevs = [p.pipetteDevice if isinstance(p, PatchPipette) else p for p in pips]
+        for pip in pipDevs:
+            zrange = pip.config.get('referenceZRange', None)
+            zstep = pip.config.get('referenceZStep', None)
+            pip.tracker.takeReferenceFrames(zRange=zrange, zStep=zstep)
 
     def setTargetToggled(self, b):
         cammod = getManager().getModule('Camera')
