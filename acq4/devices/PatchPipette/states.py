@@ -446,7 +446,7 @@ class PatchPipetteCellDetectState(PatchPipetteState):
         'maxAdvanceDepthBelowSurface': None,
         'advanceSpeed': 2e-6,
         'fastDetectionThreshold': 1e6,
-        'slowDetectionThreshold': 0.2e6,
+        'slowDetectionThreshold': 0.4e6,
         'slowDetectionSteps': 3,
         'breakThreshold': -1e6,
         'reserveDAQ': False,
@@ -704,7 +704,7 @@ class PatchPipetteSealState(PatchPipetteState):
         'pressureMode': 'user',   # 'auto' or 'user'
         'startingPressure': -1000,
         'holdingThreshold': 100e6,
-        'holdingPotential': -70e-3,
+        'holdingPotential': -20e-3,
         'sealThreshold': 1e9,
         'breakInThreshold': 10e-12,
         'nSlopeSamples': 5,
