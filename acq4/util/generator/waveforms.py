@@ -228,8 +228,7 @@ def sawWave(params, period, amplitude=1.0, phase=0.0, start=0.0, stop=None, base
     #d[start:stop] = amplitude * numpy.fromfunction(lambda t: (phase + t/float(rate*period)) % 1.0, (stop-start,))
     d[start:stop] = amplitude * ((phase + numpy.arange(stop-start)/float(rate*period)) % 1.0)
     return d
-
-    
+ 
 def listWave(params, period, values=None, phase=0.0, start=0.0, stop=None, base=0.0):
     rate = params['rate']
     nPts = params['nPts']
@@ -315,4 +314,68 @@ def noise(params, mean, sigma, start=0.0, stop=None):
         stop = nPts-1
 
     d[start:stop] = numpy.random.normal(size=stop-start, loc=mean, scale=sigma)
+    return d
+
+def spike(params, times, fwhm=0.002, amplitude=1, base=0.0):
+    # Preprocessing and check input arguments
+    nPts = params['nPts']
+    rate = params['rate']
+    if not isList(times):
+        times = [times]
+    periods = numpy.diff(times * rate)
+    if any (num < 0 for num in periods[:]):
+        raise Exception("WARNING: times must be increasing.")
+    if not isList(fwhm):
+        fwhm = [fwhm] * len(times)
+    if not isList(amplitude):
+        amplitude = [amplitude] * len(times)
+   
+    # Load waveform. TBD: centeralize all customized data files
+    d = numpy.full(nPts, base, dtype = numpy.float64)
+    apwave = numpy.fromfile('C:\\Users\\autopatch\\acq4\\acq4\\acq4\\util\\generator\\AP_2msFWHM_FULL.dat', dtype = numpy.float64, sep=' ').reshape(-1, 2)
+    data0 = apwave[:,1]/1000 # TBD: add units
+    t0 = apwave[:,0]
+    dt0 = numpy.mean(numpy.diff(t0))
+    periods = numpy.append(periods, 1)
+    for i,t in enumerate(times[:]):
+        t1 = int(t * rate)
+        freqscalingfactor = round(dt0 * rate, 2)
+        widthscalingfactor = fwhm[i]/0.002
+        ti = numpy.arange(0, len(t0)*freqscalingfactor*widthscalingfactor)/rate
+        newdata = numpy.interp(ti, t0*widthscalingfactor, data0)
+        di = newdata[1:int(periods[i])]
+        d[t1:t1+len(di)] = di * amplitude[i]
+    return d
+
+def burst(params, times, span = 1, amplitude=1, base=0.0):
+    # Preprocessing and check input arguments
+    nPts = params['nPts']
+    rate = params['rate']
+    if not isList(times):
+        times = [times]
+        periods = numpy.array([nPts])
+    else:
+        periods = numpy.diff(times * rate)
+    if any (num < 0 for num in periods[:]):
+        raise Exception("WARNING: times must be increasing.")
+    if not isList(span):
+        span = [span] * len(times)
+    if not isList(amplitude):
+        amplitude = [amplitude] * len(times)
+   
+    # Load waveform. TBD: centeralize all customized data files
+    d = numpy.full(nPts, base, dtype = numpy.float64)
+    apwave = numpy.fromfile('C:\\Users\\autopatch\\acq4\\acq4\\acq4\\util\\generator\\Subthreshold_TrainStim_1pt2s.dat', dtype = numpy.float64, sep=' ').reshape(-1, 2)
+    data0 = apwave[:,1]/1000 # TBD: add units
+    t0 = apwave[:,0]
+    dt0 = numpy.mean(numpy.diff(t0))
+    periods = numpy.append(periods, 1)
+    for i,t in enumerate(times[:]):
+        t1 = int(t * rate)
+        freqscalingfactor = round(dt0 * rate, 2)
+        widthscalingfactor = span[i]
+        ti = numpy.arange(0, len(t0)*freqscalingfactor*widthscalingfactor)/rate
+        newdata = numpy.interp(ti, t0*widthscalingfactor, data0)
+        di = newdata[1:int(periods[i])]
+        d[t1:t1+len(di)] = di * amplitude[i]
     return d
