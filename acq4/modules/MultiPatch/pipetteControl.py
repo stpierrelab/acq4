@@ -35,6 +35,7 @@ class PipetteControl(Qt.QWidget):
         self.ui.autoOffsetBtn.clicked.connect(self.autoOffsetRequested)
         self.ui.autoPipCapBtn.clicked.connect(self.autoPipCapRequested)
         self.ui.autoWholeCellBtn.clicked.connect(self.autoWholeCellRequested)
+        self.ui.autoRsCompBtn.clicked.connect(self.autoRsCompRequested)
 
         self.displayWidgets = [
             self.ui.stateText,
@@ -284,7 +285,25 @@ class PipetteControl(Qt.QWidget):
         self.pip.setTipBroken(self.ui.brokenCheck.isChecked())
 
     def autoWholeCellRequested(self, checked):
-        self.pip.clampDevice.autoWholeCellCompensate()
+        tph = self.pip.testPulseHistory()
+        cp = tph['capacitance'][-100:].mean()
+        ra = tph['peakResistance'][-100:].mean()
+        self.pip.clampDevice.autoWholeCellCompensate(cp, ra)
+
+    def autoRsCompRequested(self, checked):
+        rscomplevel = 0
+        rscompaim = 60 # For a good voltage clamp where 20*Ra << Rm, this limits the error to <<2%
+        # Always start from 0 to avoid oscillation
+        self.pip.clampDevice.mc.setParam('RsCompCorrection', rscomplevel) 
+        self.pip.clampDevice.mc.setParam('RsCompEnable', 1)
+        while rscomplevel <= rscompaim: # usually don't compensate more than 80%
+            self.pip.clampDevice.autoRsCompensate(rscomplevel)
+            if self.pip.clampDevice.mc.getParam('RsCompEnable'):
+                rscomplevel += 10
+            else: # Per oscillation, reduce compensation aim and restart
+                rscomplevel = 0
+                rscompaim -= 10
+                self.pip.clampDevice.mc.setParam('RsCompEnable', 1)
 
 class MousePressCatch(Qt.QObject):
     sigMousePress = Qt.Signal(object, object)  # receiver, event
