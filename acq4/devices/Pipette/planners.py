@@ -113,7 +113,7 @@ class PipettePathGenerator:
             else:
                 return [(waypoint, speed, linear), (stop, 'slow', linear)]
 
-    def safeYZPosition(self, start, margin=2e-3):
+    def safeYZPosition(self, start, margin=1e-3):
         """Return a position to travel to, beginning from *start*, where the pipette may freely move in the local YZ
         plane without hitting obstacles (in particular the objective lens).
         """

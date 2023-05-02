@@ -446,7 +446,7 @@ class PatchPipetteCellDetectState(PatchPipetteState):
         'maxAdvanceDepthBelowSurface': None,
         'advanceSpeed': 2e-6,
         'fastDetectionThreshold': 1e6,
-        'slowDetectionThreshold': 0.4e6,
+        'slowDetectionThreshold': 0.5e6,
         'slowDetectionSteps': 3,
         'breakThreshold': -1e6,
         'reserveDAQ': False,
