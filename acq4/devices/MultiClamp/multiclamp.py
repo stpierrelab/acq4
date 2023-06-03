@@ -279,7 +279,19 @@ class MultiClamp(PatchClamp):
     def autoCapComp(self):
         with self.dm.reserveDevices([self]):
             self.mc.autoSlowComp()
-            self.mc.autoFastComp()          
+            self.mc.autoFastComp()         
+
+    def autoCpFastComp(self):
+        with self.dm.reserveDevices([self]):
+            self.mc.autoFastComp()  
+
+    def RaComp(self, ra):
+        with self.dm.reserveDevices([self]):
+            self.mc.setParam('WholeCellCompResist', ra)
+    
+    def CmComp(self, cp):
+        with self.dm.reserveDevices([self]):
+            self.mc.setParam('WholeCellCompCap', cp)   
 
     def autoWholeCellCompensate(self, cp, ra):
         with self.dm.reserveDevices([self]):
@@ -289,10 +301,9 @@ class MultiClamp(PatchClamp):
             # then call auto compensation
             self.mc.autoWholeCellComp()
             
-    def autoRsCompensate(self, rs):
+    def RsCompensate(self, rs):
         with self.dm.reserveDevices([self]):           
             self.mc.setParam('RsCompCorrection', rs)
-            self.mc.autoFastComp()
 
     def listSignals(self, mode):
         return self.mc.listSignals(mode)
