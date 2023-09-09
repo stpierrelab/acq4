@@ -1,20 +1,17 @@
-# -*- coding: utf-8 -*-
-from __future__ import division
-from __future__ import print_function
-
 import weakref
 from typing import List
 
 import numpy as np
 import pyqtgraph as pg
 from six.moves import range
+import json
 
 from acq4 import getManager
 from acq4.devices.Device import Device
 from acq4.devices.OptomechDevice import OptomechDevice
 from acq4.devices.Stage import Stage
 from acq4.modules.Camera import CameraModuleInterface
-from acq4.util import Qt
+from acq4.util import Qt, ptime
 from acq4.util.target import Target
 from pyqtgraph import Point
 from .planners import defaultMotionPlanners, PipettePathGenerator
@@ -42,12 +39,17 @@ class Pipette(Device, OptomechDevice):
 
     * pitch: The angle of the pipette (in degrees) relative to the horizontal plane.
       Positive values point downward. This option must be specified in the configuration.
-      If the value 'auto' is given, then the pitch is derived from the parent manipulator's X axis pitch
-      (assumes that the X axis is parallel to the pipette)
+      If the value 'auto' is given, then the pitch is derived from the parent manipulator's X axis 
+      (or other specified by parentAutoAxis) pitch.
     * yaw: The angle of the pipette (in degrees) relative to the global +X axis (points to the operator's right
       when facing the microscope).
       Positive values are clockwise from global +X. This option must be specified in the configuration.
-      If the value 'auto' is given, then the yaw is derived from the parent manipulator's X axis yaw.
+      If the value 'auto' is given, then the yaw is derived from the parent manipulator's X axis 
+      (or other specified by parentAutoAxis) yaw.
+    * parentAutoAxis: One of '+x' (default), '-x', '+y', '-y', '+z', or '-z' indicating the axis and direction in the
+      parent manipulator's coordinate system that points along the pipette and toward the tip. This axis
+      is used by the *pitch* and *yaw* options when they are set to 'auto'. If the pipette is not parallel
+      to one of these axes, then a numerical value must be provided for the pitch and/or yaw.
     * searchHeight: the distance to focus above the sample surface when searching for pipette tips. This
       should be about 1-2mm, enough to avoid collisions between the pipette tip and the sample during search.
       Default is 2 mm.
@@ -81,7 +83,6 @@ class Pipette(Device, OptomechDevice):
         Device.__init__(self, deviceManager, config, name)
         OptomechDevice.__init__(self, deviceManager, config, name)
         self.config = config
-        self.config = config
         self.moving = False
         self._scopeDev = None
         self._imagingDev = None
@@ -95,7 +96,7 @@ class Pipette(Device, OptomechDevice):
         }
         parent = self.parentDevice()
         if not isinstance(parent, Stage):
-            raise Exception("Pipette device requires some type of translation stage as its parent.")
+            raise Exception("Pipette device requires some type of translation stage as its parentDevice.")
 
         # may add items here to implement per-pipette custom motion planning
         self.motionPlanners = {}
@@ -295,7 +296,8 @@ class Pipette(Device, OptomechDevice):
             return self.config['pitch']
 
     def _manipulatorOrientation(self) -> dict:
-        return self.parentDevice().calculatedXAxisOrientation()
+        axis = self.config.get('parentAutoAxis', '+x')
+        return self.parentDevice().calculatedAxisOrientation(axis)
 
     def yawRadians(self):
         return self.yawAngle() * np.pi / 180.
@@ -489,6 +491,55 @@ class Pipette(Device, OptomechDevice):
         """
         man = getManager()
         return [man.getDevice(d) for d in self.config.get('recordingChambers', [])]
+
+    def startRecording(self):
+        """Return an object that records all motion updates from this pipette
+        """
+        return PipetteRecorder(self)
+
+
+class PipetteRecorder:
+    def __init__(self, pip):
+        self.pip = pip
+        self.events = []
+
+        self.pip.sigTransformChanged.connect(self.recordPos)
+        self.pip.sigMoveStarted.connect(self.recordMoveStarted)
+        self.pip.sigMoveFinished.connect(self.recordMoveFinished)
+        self.pip.sigMoveRequested.connect(self.recordMoveRequested)
+
+        self.newEvent('init', {'position': tuple(self.pip.globalPosition()), 'direction': tuple(self.pip.globalDirection())})
+
+    def recordPos(self):
+        self.newEvent('position_change', {'position': tuple(self.pip.globalPosition())})
+
+    def recordMoveStarted(self, pip, pos):
+        self.newEvent('move_start', {'position': tuple(pos)})
+
+    def recordMoveFinished(self, pip, pos):
+        self.newEvent('move_stop', {'position': tuple(pos)})
+
+    def recordMoveRequested(self, pip, pos, speed, opts):
+        self.newEvent('move_request', {'position': tuple(pos), 'speed': speed, 'opts': opts})
+
+    def newEvent(self, eventType, eventData):
+        newEv = dict([
+            ('device', self.pip.name()),
+            ('event_time', ptime.time()),
+            ('event', eventType),
+        ])
+        if eventData is not None:
+            newEv.update(eventData)
+        self.events.append(newEv)
+
+    def stop(self):
+        self.pip.sigTransformChanged.disconnect(self.recordPos)
+        self.pip.sigMoveStarted.disconnect(self.recordMoveStarted)
+        self.pip.sigMoveFinished.disconnect(self.recordMoveFinished)
+        self.pip.sigMoveRequested.disconnect(self.recordMoveRequested)
+
+    def store(self, filename):
+        json.dump(self.events, open(filename + '.json', 'w'))
 
 
 class PipetteCamModInterface(CameraModuleInterface):
