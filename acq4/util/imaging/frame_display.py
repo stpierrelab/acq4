@@ -1,5 +1,4 @@
 import time
-
 import pyqtgraph as pg
 from acq4.util import Qt, ptime
 from acq4.util.cuda import shouldUseCuda, cupy
@@ -7,7 +6,11 @@ from acq4.util.debug import printExc
 from pyqtgraph.debug import Profiler
 from .bg_subtract_ctrl import BgSubtractCtrl
 from .contrast_ctrl import ContrastCtrl
-
+from tensorflow.keras.models import load_model
+import numpy as np
+import cv2
+from skimage import measure
+from scipy.ndimage import binary_fill_holes
 
 class FrameDisplay(Qt.QObject):
     """Used with live imaging to hold the most recently acquired frame and allow
@@ -33,6 +36,8 @@ class FrameDisplay(Qt.QObject):
         self._msPerFrame = int(self._sPerFrame * 1000)
         self._imageItem = pg.ImageItem()  # Implicitly depends on global setConfigOption state
         self._imageItem.setAutoDownsample(True)
+        #self._maskcnn = load_model('./data/mask_model.keras')
+        self.doLiveSeg = True
         self.contrastCtrl = self.contrastClass()
         self.contrastCtrl.setImageItem(self._imageItem)
         self.bgCtrl = self.bgSubtractClass()
@@ -94,6 +99,30 @@ class FrameDisplay(Qt.QObject):
 
         self.bgCtrl.newFrame(frame)
 
+    def clean_mask(self, mask, threshold=0.5):
+        _, binary_mask = cv2.threshold(mask, threshold, 1, cv2.THRESH_BINARY)
+        labels = measure.label(binary_mask, connectivity=2)
+        # Keep only the largest region
+        if labels.max() != 0:  # Ensure at least one label was found
+            largest_roi = labels == np.argmax(np.bincount(labels.flat)[1:]) + 1
+            finalmask = binary_fill_holes(largest_roi*1)
+        else:
+            finalmask = labels*0
+        return finalmask
+
+    def drawSeg(self, data):
+        image = data[206:306, 206:306].reshape([1,100,100])
+        min_val = np.min(image)
+        max_val = np.max(image)
+        scaledimage= (image - min_val) / (max_val - min_val)
+        maskmodel = load_model('./data/mask_model_tf13.keras')
+        predictedmask = maskmodel.predict(scaledimage)
+        cleanedmask = self.clean_mask(predictedmask.reshape([100,100]), threshold = 0.3)
+        finalmask = np.zeros(data.shape)
+        finalmask[206:306, 206:306] = cleanedmask
+        maskdata = data + finalmask*max_val
+        return maskdata
+
     def drawFrame(self):
         if self.hasQuit:
             return
@@ -136,6 +165,13 @@ class FrameDisplay(Qt.QObject):
 
             # Set new levels if auto gain is enabled
             self.contrastCtrl.processImage(data)
+            cv2.imwrite("filename.png", data)
+
+            prof()
+
+            # Do target detection if requested
+            if self.doLiveSeg:
+                data = self.drawSeg(data)
             prof()
 
             if shouldUseCuda():
