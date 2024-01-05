@@ -14,8 +14,8 @@ from acq4.devices.Camera import Camera, CameraTask
 from acq4.util import Qt
 from acq4.util.Mutex import Mutex
 
-WIDTH = 512
-HEIGHT = 512
+WIDTH = 2048
+HEIGHT =  2048
 
 
 class MockCamera(Camera):
@@ -210,6 +210,34 @@ class MockCamera(Camera):
 
         return self.background
 
+    def getFrameFromFile(self):
+        w, h = self.params["sensorSize"]
+        tr = self.globalTransform()
+        frameId = self.frameId
+        # select data based on objective
+        obj = self.getObjective()
+        bgData = self.bgData[obj]
+        frameId = self.frameId%len(bgData)
+        data = bgData[frameId]
+        return data
+        """
+        info = self.bgInfo[obj]
+        px = info["pixelSize"]
+        pz = info["depths"][1] - info["depths"][0]
+        m = Qt.QMatrix4x4()
+        pos = info["transform"]["pos"]
+        m.scale(1 / px[0], 1 / px[1], 1 / pz)
+        m.translate(-pos[0], -pos[1], -info["depths"][0])
+        tr2 = m * tr
+        origin = tr2.map(pg.Vector(0, 0, 0))
+        origin = [int(origin.x()), int(origin.y()), origin.z()]
+        # slice data
+        camRect = Qt.QRect(origin[0], origin[1], w, h)
+        dataRect = Qt.QRect(0, 0, data.shape[1], data.shape[2])
+        overlap = camRect.intersected(dataRect)
+        tl = overlap.topLeft() - camRect.topLeft()
+        """
+
     def pixelVectors(self):
         tr = self.globalTransform()
         origin = tr.map(pg.Point(0, 0))
@@ -238,9 +266,10 @@ class MockCamera(Camera):
         prof()
         region = self.getParam("region")
         prof()
-        bg = self.getBackground()[region[0] : region[0] + region[2], region[1] : region[1] + region[3]]
+        data = self.getFrameFromFile()[region[0] : region[0] + region[2], region[1] : region[1] + region[3]]
         prof()
 
+        """
         # Start with noise
         shape = region[2:]
         data = self.getNoise(shape)
@@ -274,7 +303,7 @@ class MockCamera(Camera):
             stop = (int(start[0] + w), int(start[1] + w))
             val = cell["intensity"] * cell["value"] * self.getParam("exposure")
             data[max(0, start[0]) : max(0, stop[0]), max(0, start[1]) : max(0, stop[1])] += val
-
+        
         # Binning
         if bin[0] > 1:
             data = fn.downsample(data, bin[0], axis=0)
@@ -282,7 +311,7 @@ class MockCamera(Camera):
             data = fn.downsample(data, bin[1], axis=1)
         data = data.astype(np.uint16)
         prof()
-
+        """
         self.frameId += 1
         frames = []
         for i in range(nf):
