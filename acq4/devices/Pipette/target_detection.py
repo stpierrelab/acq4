@@ -9,12 +9,12 @@ class TargetDetector(object):
         self.maskcnn = maskcnn
         self.targetcnn = targetcnn
 
-    def findMask(self, image):
+    def findMask(self, image, threshold = 0.3):
         """Detect the target cell mask in *image* and return the mask as an array
          The *image* should have a size of 100x100 with pixel intensities scaled to (0,1)"""
         image = image.reshape([1, 100, 100])       
         predictedmask = self.maskcnn.predict(image)
-        mask = self.cleanMask(predictedmask.reshape([100,100]), threshold = 0.3)
+        mask = self.cleanMask(predictedmask.reshape([100,100]), threshold = threshold)
         return mask
     
     def findLandingPos(self, image, mask):

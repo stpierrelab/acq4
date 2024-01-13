@@ -9,6 +9,9 @@ from acq4.Manager import getManager
 from acq4.util import Qt, ptime
 from acq4.util.image_registration import imageTemplateMatch
 from .pipette_detection import TemplateMatchPipetteDetector
+from .target_detection import TargetDetector
+from tensorflow.keras.models import load_model
+
 
 
 class PipetteTracker(object):
@@ -699,3 +702,52 @@ class DriftMonitor(Qt.QWidget):
     def closeEvent(self, event):
         self.timer.stop()
         return Qt.QWidget.closeEvent(self, event)
+
+
+class TargetTracker(object):
+    """Provides functionality for automated tracking and recalibration of target (cell) position
+    based on camera feedback.
+    """
+    detectorClass = TargetDetector
+
+    def __init__(self, pipette):
+        self.dev = pipette # target is a property of Pipette
+        maskcnnfileName = self.dev.configFileName("mask_model_tf13.keras") 
+        targetcnnfileName = self.dev.configFileName("label_model_tf13.keras") 
+        try:
+            with load_model(maskcnnfileName) as mymaskcnn:
+                self.maskcnn = mymaskcnn
+        except Exception:
+            self.maskcnn = {}
+        try:
+            with load_model(targetcnnfileName) as mytargetcnn:
+                self.targetcnn = mytargetcnn
+        except Exception:
+            self.targetcnn = {}
+
+    def measureTargetPosition(
+        self, threshold=0.3, frame=None, pos=None, show=False
+    ):
+        """Find the target location by cnn
+            threshold: masking threshold 
+        """
+        # Grab one frame (if it is not already supplied) and crop it to the region around the target
+        if frame is None:
+            frame = self.takeFrame()
+        elif frame == "next":
+            frame = self.getNextFrame()
+
+        # generate crop region around current target
+        currentPos = self.dev.targetPosition()[0:2]
+
+        # apply machine vision algorithm
+        detector = self.detectorClass(self.maskcnn, self.targetcnn)
+        if currentPos is None:
+            image = detector.cropFrame(frame)
+        else:
+            image = detector.cropFrame(frame, expectedPos = currentPos)
+        image = detector.scaleImage(image)
+        mask = detector.findMask(image, threshold = threshold)
+        targetPos = detector.findLandingPos(self, image, mask)
+
+        return targetPos
