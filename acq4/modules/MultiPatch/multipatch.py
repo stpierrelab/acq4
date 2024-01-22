@@ -75,6 +75,7 @@ class MultiPatchWindow(Qt.QWidget):
         for i, pip in enumerate(self.pips):
             pip.sigMoveStarted.connect(self.pipetteMoveStarted)
             pip.sigMoveFinished.connect(self.pipetteMoveFinished)
+            # pip.sigIsSmart.connect(self.smartTargetCheckChanged)
             if isinstance(pip, PatchPipette):
                 pip.sigNewEvent.connect(self.pipetteEvent)
                 pip.sigTestPulseEnabled.connect(self.pipetteTestPulseEnabled)
@@ -323,13 +324,15 @@ class MultiPatchWindow(Qt.QWidget):
     # Check/uncheck the smartTarget UI and chanage appearance
     # Under smartTargetMode, checkbox will be highlighted in green
     def smartTargetCheckChanged(self, besmart):
-        with pg.SignalBlock(self.ui.smartTargetCheck.stateChanged, self.smartTargetTriggered):
-            self.ui.smartTargetCheck.setChecked(besmart)
+        self.ui.smartTargetCheck.stateChanged
+        self.ui.smartTargetCheck.setChecked(besmart)
+        self.smartTargetTriggered(besmart)
         self.ui.smartTargetCheck.setStyleSheet("" if not besmart else "QCheckBox {border: 2px solid #0F0;}")
 
     def smartTargetTriggered(self, checked):
-        pass
-        #self.pip.setSmartMode(not self.ui.smartTargetCheckChanged.isChecked())
+        pips = self.selectedPipettes()
+        for pip in pips:
+            pip.pipetteDevice.setSmartMode(self.ui.smartTargetCheck.isChecked())
 
     def setTargetToggled(self, b):
         cammod = getManager().getModule('Camera')

@@ -68,6 +68,7 @@ class Pipette(Device, OptomechDevice):
 
     sigTargetChanged = Qt.Signal(object, object)
     sigCalibrationChanged = Qt.Signal(object)
+    sigIsSmart = Qt.Signal(object, object)
 
     # move start/finish are used for recording coarse movement information;
     # they are not emitted for every transform change.
@@ -97,6 +98,8 @@ class Pipette(Device, OptomechDevice):
         parent = self.parentDevice()
         if not isinstance(parent, Stage):
             raise Exception("Pipette device requires some type of translation stage as its parentDevice.")
+
+        self.issmart = False
 
         # may add items here to implement per-pipette custom motion planning
         self.motionPlanners = {}
@@ -445,6 +448,12 @@ class Pipette(Device, OptomechDevice):
         This method does _not_ implement any motion planning.
         """
         return self._moveToGlobal(self.mapToGlobal(pos), speed, linear=linear)
+   
+    def setSmartMode(self, issmart):
+        #if issmart == self.issmart:
+        #    return
+        self.issmart = issmart
+        # self.sigIsSmart.emit(self, issmart)
 
     def setTarget(self, target):
         self.target = np.array(target)
