@@ -11,7 +11,7 @@ import acq4.util.functions as fn
 import acq4.util.ptime as ptime
 import pyqtgraph as pg
 from acq4.devices.Camera import Camera, CameraTask
-from acq4.util import Qt
+from acq4.util import Qt, imaging
 from acq4.util.Mutex import Mutex
 
 WIDTH = 2048
@@ -319,6 +319,25 @@ class MockCamera(Camera):
         prof()
         return frames
 
+    def acquireFrames(self, n = 1, stack = True):
+        """Immediately acquire and return a specific number of frames.
+
+        All frames are returned stacked within a single Frame instance, as a 3D or 4D array.
+
+        If *stack* is False, then the first axis is dropped and the resulting data will instead be
+        2D or 3D."""
+        if n > 1 and not stack:
+            raise ValueError("Using stack=False is only allowed when n==1.")
+        # TODO: Add a non-blocking mode that returns a Future.
+        frames = self.newFrames()
+        if not stack:
+            frames = frames[0]
+        frames = frames[n]
+        info = dict(self.getParams(["binning", "exposure", "region", "triggerMode"]))
+        info["time"] = ptime.time()
+        f = Frame(frames)
+        return f
+
     def quit(self):
         pass
 
@@ -403,6 +422,9 @@ class MockCameraTask(CameraTask):
 
         return data
 
+class Frame(imaging.Frame):
+    def __init__(self, data):
+        self.data = data['data']
 
 def mandelbrot(width=500, height=None, maxIter=20, xRange=(-2.0, 1.0), yRange=(-1.2, 1.2)):
     x0, x1 = xRange

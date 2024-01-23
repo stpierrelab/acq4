@@ -704,7 +704,7 @@ class DriftMonitor(Qt.QWidget):
         return Qt.QWidget.closeEvent(self, event)
 
 
-class TargetTracker(object):
+class TargetTracker(PipetteTracker):
     """Provides functionality for automated tracking and recalibration of target (cell) position
     based on camera feedback.
     """
@@ -724,7 +724,7 @@ class TargetTracker(object):
                 self.targetcnn = mytargetcnn
         except Exception:
             self.targetcnn = {}
-
+    
     def measureTargetPosition(
         self, threshold=0.3, frame=None, pos=None, show=False
     ):

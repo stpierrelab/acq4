@@ -27,7 +27,7 @@ class TargetDetector(object):
         return pos
 
     @staticmethod 
-    def cleanMask(mask, threshold=0.5):
+    def cleanMask(mask, threshold=0.3):
         _, binary_mask = cv2.threshold(mask, threshold, 1, cv2.THRESH_BINARY)
         labels = measure.label(binary_mask, connectivity=2)
         # Keep only the largest region
@@ -40,7 +40,7 @@ class TargetDetector(object):
     
     @staticmethod
     def cropFrame(frame, expectedPos = None):
-        image = frame.data()
+        image = frame.data
         if expectedPos is None:
             height, width = len(image), len(image[0])
             expectedPos = [width//2, height//2]

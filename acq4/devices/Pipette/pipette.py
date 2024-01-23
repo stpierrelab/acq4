@@ -15,7 +15,7 @@ from acq4.util import Qt, ptime
 from acq4.util.target import Target
 from pyqtgraph import Point
 from .planners import defaultMotionPlanners, PipettePathGenerator
-from .tracker import PipetteTracker
+from .tracker import PipetteTracker, TargetTracker
 from ..RecordingChamber import RecordingChamber
 
 CamModTemplate = Qt.importTemplate('.cameraModTemplate')
@@ -130,6 +130,7 @@ class Pipette(Device, OptomechDevice):
         self._updateTransform()
 
         self.tracker = PipetteTracker(self)
+        self.tartracker = TargetTracker(self)
         deviceManager.declareInterface(name, ['pipette'], self)
 
         target = self.readConfigFile('target').get('targetGlobalPosition', None)
@@ -456,9 +457,14 @@ class Pipette(Device, OptomechDevice):
         # self.sigIsSmart.emit(self, issmart)
 
     def setTarget(self, target):
+        if self.issmart:
+            target = self.setSmartTarget(target)
         self.target = np.array(target)
         self.writeConfigFile({'targetGlobalPosition': list(self.target)}, 'target')
         self.sigTargetChanged.emit(self, self.target)
+
+    def setSmartTarget(self, target):
+        target = self.tartracker.measureTargetPosition()
 
     def targetPosition(self):
         if self.target is None:
