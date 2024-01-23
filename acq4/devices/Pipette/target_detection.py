@@ -44,7 +44,7 @@ class TargetDetector(object):
         if expectedPos is None:
             height, width = len(image), len(image[0])
             expectedPos = [width//2, height//2]
-        croppedimage = image[(expectedPos[0]-50):(expectedPos[0]+50), (expectedPos[1]-50):(expectedPos[1]+50)]        
+        croppedimage = image[0][(expectedPos[0]-50):(expectedPos[0]+50), (expectedPos[1]-50):(expectedPos[1]+50)]        
         return croppedimage
     
     @staticmethod

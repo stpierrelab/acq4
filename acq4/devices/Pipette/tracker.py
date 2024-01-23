@@ -740,14 +740,15 @@ class TargetTracker(PipetteTracker):
         # generate crop region around current target
         currentPos = self.dev.targetPosition()[0:2] # Absolute Position
         # translate currentPos into cameraPos
-        trcurrentPos = frame.globalTransform().inverted().map(currentPos)
+        trcurrentPos = frame.globalTransform().inverted()[0].map(currentPos)
+        roundpos = np.array([int(trcurrentPos[0]), int(trcurrentPos[1])]) 
 
         # apply machine vision algorithm
         detector = self.detectorClass(self.maskcnn, self.targetcnn)
         if trcurrentPos is None:
             image = detector.cropFrame(frame)
         else:
-            image = detector.cropFrame(frame, expectedPos = trcurrentPos)
+            image = detector.cropFrame(frame, expectedPos = roundpos)
         image = detector.scaleImage(image)
         mask = detector.findMask(image, threshold = threshold)
         targetPos = detector.findLandingPos(self, image, mask)
