@@ -40,7 +40,7 @@ class TargetDetector(object):
     
     @staticmethod
     def cropFrame(frame, expectedPos = None):
-        image = frame.data
+        image = frame.data()
         if expectedPos is None:
             height, width = len(image), len(image[0])
             expectedPos = [width//2, height//2]

@@ -334,8 +334,13 @@ class MockCamera(Camera):
             frames = frames[0]
         frames = frames[n]
         info = dict(self.getParams(["binning", "exposure", "region", "triggerMode"]))
+        ss = self.getScopeState()
+        ps = ss["pixelSize"]  # size of CCD pixel
+        info["pixelSize"] = [ps[0] * info["binning"][0], ps[1] * info["binning"][1]]
+        info["objective"] = ss.get("objective", None)
+        info["deviceTransform"] = pg.SRTTransform3D(ss["transform"])
         info["time"] = ptime.time()
-        f = Frame(frames)
+        f = Frame(frames, info)
         return f
 
     def quit(self):
@@ -423,8 +428,10 @@ class MockCameraTask(CameraTask):
         return data
 
 class Frame(imaging.Frame):
-    def __init__(self, data):
-        self.data = data['data']
+    def __init__(self, data, info):
+        tr = Camera.makeFrameTransform(info["region"], info["binning"])
+        info["frameTransform"] = tr
+        imaging.Frame.__init__(self, data, info)
 
 def mandelbrot(width=500, height=None, maxIter=20, xRange=(-2.0, 1.0), yRange=(-1.2, 1.2)):
     x0, x1 = xRange
