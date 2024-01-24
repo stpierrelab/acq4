@@ -714,6 +714,9 @@ class TargetTracker(PipetteTracker):
         self.dev = pipette # target is a property of Pipette
         maskcnnfileName = self.dev.configFileName("mask_model_tf13.keras") 
         targetcnnfileName = self.dev.configFileName("label_model_tf13.keras") 
+        self.maskcnn = load_model(maskcnnfileName)
+        self.targetcnn = load_model(targetcnnfileName)
+        """
         try:
             with load_model(maskcnnfileName) as mymaskcnn:
                 self.maskcnn = mymaskcnn
@@ -724,6 +727,7 @@ class TargetTracker(PipetteTracker):
                 self.targetcnn = mytargetcnn
         except Exception:
             self.targetcnn = {}
+            """
     
     def measureTargetPosition(
         self, threshold=0.3, frame=None, pos=None, show=False
@@ -739,7 +743,7 @@ class TargetTracker(PipetteTracker):
 
         # generate crop region around current target
         currentPos = self.dev.targetPosition()[0:2] # Absolute Position
-        # translate currentPos into cameraPos
+        # translate global coordinate into camera coordinate
         trcurrentPos = frame.globalTransform().inverted()[0].map(currentPos)
         roundpos = np.array([int(trcurrentPos[0]), int(trcurrentPos[1])]) 
 
@@ -751,6 +755,8 @@ class TargetTracker(PipetteTracker):
             image = detector.cropFrame(frame, expectedPos = roundpos)
         image = detector.scaleImage(image)
         mask = detector.findMask(image, threshold = threshold)
-        targetPos = detector.findLandingPos(self, image, mask)
-
-        return targetPos
+        targetPos = detector.findLandingPos(image, mask)
+        # translate camera coordinate into global coordinate
+        trtargetPos = frame.mapFromFrameToGlobal(targetPos) 
+        trtargetPos = np.append(trtargetPos, currentPos[2]) # TBD: predict the z-coordinate of the target
+        return trtargetPos

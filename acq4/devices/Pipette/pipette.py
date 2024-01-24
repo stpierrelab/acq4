@@ -465,6 +465,7 @@ class Pipette(Device, OptomechDevice):
 
     def setSmartTarget(self, target):
         target = self.tartracker.measureTargetPosition()
+        return target
 
     def targetPosition(self):
         if self.target is None:
