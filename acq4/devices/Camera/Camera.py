@@ -14,6 +14,7 @@ from acq4.util import imaging
 from acq4.util.Mutex import Mutex
 from acq4.util.Thread import Thread
 from acq4.util.debug import printExc
+from acq4.modules.Camera.CameraWindow import SequencerThread
 from pyqtgraph import Vector, SRTTransform3D
 from pyqtgraph.debug import Profiler
 from .CameraInterface import CameraInterface
@@ -71,6 +72,10 @@ class Camera(DAQGeneric, OptomechDevice):
 
         if "scaleFactor" not in self.camConfig:
             self.camConfig["scaleFactor"] = [1.0, 1.0]
+
+        if "autofocus" not in self.camConfig:
+            self.camConfig["autofocus"]["range"] = [-10, 10]
+            self.camConfig["autofocus"]["spacing"] = 1e-6 # 1um
 
         # Default values for scope state. These will be used if there is no scope defined.
         self.scopeState = {
@@ -298,6 +303,31 @@ class Camera(DAQGeneric, OptomechDevice):
         # self.cam.close()
         DAQGeneric.quit(self)
 
+    def setAutoFocus(self):
+        """Calls the camera driver to start autofocus."""
+        currentz = self.getFocusDepth()
+        searchrange = self.camConfig["autofocus"]["range"]
+        start = currentz - searchrange[0]
+        end = currentz + searchrange[1]
+        spacing = self.camConfig["autofocus"]["spacing"]
+        prot = {
+            "imager": self,
+            "zStack": True,
+            "timelapse": False,
+        }
+        if end < start:
+            prot["zStackValues"] = list(np.arange(start, end, -spacing))
+        else:
+            prot["zStackValues"] = list(np.arange(start, end, spacing))
+        # No need for timelapse
+        prot["timelapseCount"] = 1
+        prot["timelapseInterval"] = 0
+        try:
+            SequencerThread.start(prot)
+        except Exception:
+            SequencerThread.stop()
+        raise NotImplementedError("Function must be reimplemented in subclass.")    
+   
     # @ftrace
     def createTask(self, cmd, parentTask):
         with self.lock:
