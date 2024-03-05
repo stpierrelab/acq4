@@ -74,7 +74,7 @@ class Camera(DAQGeneric, OptomechDevice):
 
         if "autofocus" not in self.camConfig:
             self.camConfig["autofocus"] = {
-                "range": [0.01, 0.1],  # 100nm to 1um
+                "range": [-10e-6, 10e-6],  # pm 10um
                 "spacing": 1e-6,  # 1um
             }
 
@@ -308,7 +308,7 @@ class Camera(DAQGeneric, OptomechDevice):
         """Calls the camera driver to start autofocus."""
         currentz = self.getFocusDepth()
         searchrange = self.camConfig["autofocus"]["range"]
-        start = currentz - searchrange[0]
+        start = currentz + searchrange[0]
         end = currentz + searchrange[1]
         spacing = self.camConfig["autofocus"]["spacing"]
         prot = {
