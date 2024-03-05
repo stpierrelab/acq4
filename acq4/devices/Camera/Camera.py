@@ -14,7 +14,6 @@ from acq4.util import imaging
 from acq4.util.Mutex import Mutex
 from acq4.util.Thread import Thread
 from acq4.util.debug import printExc
-from acq4.modules.Camera.CameraWindow import SequencerThread
 from pyqtgraph import Vector, SRTTransform3D
 from pyqtgraph.debug import Profiler
 from .CameraInterface import CameraInterface
@@ -74,8 +73,10 @@ class Camera(DAQGeneric, OptomechDevice):
             self.camConfig["scaleFactor"] = [1.0, 1.0]
 
         if "autofocus" not in self.camConfig:
-            self.camConfig["autofocus"]["range"] = [-10, 10]
-            self.camConfig["autofocus"]["spacing"] = 1e-6 # 1um
+            self.camConfig["autofocus"] = {
+                "range": [0.01, 0.1],  # 100nm to 1um
+                "spacing": 1e-6,  # 1um
+            }
 
         # Default values for scope state. These will be used if there is no scope defined.
         self.scopeState = {
@@ -312,22 +313,50 @@ class Camera(DAQGeneric, OptomechDevice):
         spacing = self.camConfig["autofocus"]["spacing"]
         prot = {
             "imager": self,
-            "zStack": True,
-            "timelapse": False,
-        }
+            "zStack": True,        }
         if end < start:
             prot["zStackValues"] = list(np.arange(start, end, -spacing))
         else:
             prot["zStackValues"] = list(np.arange(start, end, spacing))
-        # No need for timelapse
-        prot["timelapseCount"] = 1
-        prot["timelapseInterval"] = 0
         try:
-            SequencerThread.start(prot)
+            f = self.acquirezstack(prot) # TBD: rewrite acquirezstack
+            newz = self.getOptimalFocusDepth(f, prot["zStackValues"])
+            self.setFocusDepth(newz)
         except Exception:
-            SequencerThread.stop()
-        raise NotImplementedError("Function must be reimplemented in subclass.")    
+            return
+        
+
+    def acquirezstack(self, protocol):
+        """Acquire a z-stack of images using the given protocol and return the images and z-positions.""" 
+        try:      
+            for i in range(len(protocol["zStackValues"])):
+                self.setFocusDepth(protocol["zStackValues"][i])
+                f = self.acquireFrames(1, stack=False)
+                if i == 0:
+                    I = np.zeros([len(protocol["zStackValues"]), f.data().shape[0], f.data().shape[1]])
+                I[i, :, :] = f.data()
+        except Exception as e:
+            print("Error acquiring z-stack: ", e)
+
+
+    @staticmethod
+    def getOptimalFocusDepth(I, d, method = "sharpness"):   
+        """Given a z-stack of images, return the z position that is in focus."""
+        if method == "sharpness":
+            sharpness = np.zeros(len(d))
+            for i in range(len(d)):
+                sharpness[i] = Camera.estimate_sharpness(I[i]) # depending on the shape of I, this may need to be I[i,:,:]
+            return d[np.argmax(sharpness)]
+        else: # TBD: get Focus by with 1 frame
+            raise ValueError("Method not implemented.")
    
+    @staticmethod
+    def estimate_sharpness(G):
+        [Gx, Gy]=np.gradient(np.double(G))
+        S=np.sqrt(Gx*Gx+Gy*Gy)
+        sharpness= np.sum(S)/(Gx.size)
+        return sharpness
+    
     # @ftrace
     def createTask(self, cmd, parentTask):
         with self.lock:
