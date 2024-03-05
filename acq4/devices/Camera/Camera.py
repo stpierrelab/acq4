@@ -322,14 +322,14 @@ class Camera(DAQGeneric, OptomechDevice):
             f = self.acquirezstack(prot) # TBD: rewrite acquirezstack
             newz = self.getOptimalFocusDepth(f, prot["zStackValues"])
             self.setFocusDepth(newz)
-        except Exception:
-            return
+        except Exception as e:
+            print("Error during autofocus: ", e)
         
 
     def acquirezstack(self, protocol):
         """Acquire a z-stack of images using the given protocol and return the images and z-positions.""" 
         try:      
-            for i in range(len(protocol["zStackValues"])):
+            for i in np.arange(len(protocol["zStackValues"])):
                 self.setFocusDepth(protocol["zStackValues"][i])
                 f = self.acquireFrames(1, stack=False)
                 if i == 0:
