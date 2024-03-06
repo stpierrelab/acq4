@@ -76,6 +76,7 @@ class Camera(DAQGeneric, OptomechDevice):
             self.camConfig["autofocus"] = {
                 "range": [-10e-6, 10e-6],  # pm 10um
                 "spacing": 1e-6,  # 1um
+                "abovesurface": -20e-6,  # do not go below surface for more than 20um
             }
 
         # Default values for scope state. These will be used if there is no scope defined.
@@ -308,16 +309,15 @@ class Camera(DAQGeneric, OptomechDevice):
         """Calls the camera driver to start autofocus."""
         currentz = self.getFocusDepth()
         searchrange = self.camConfig["autofocus"]["range"]
-        start = currentz + searchrange[0]
-        end = currentz + searchrange[1]
-        spacing = self.camConfig["autofocus"]["spacing"]
+        scope = self.scopeDev
+        doNotGoBelow = scope.getSurfaceDepth() + self.camConfig["autofocus"]["abovesurface"]
+        start = max(currentz + min(searchrange), doNotGoBelow)
+        end = max(currentz + max(searchrange), doNotGoBelow)
+        spacing = abs(self.camConfig["autofocus"]["spacing"])
         prot = {
             "imager": self,
-            "zStack": True,        }
-        if end < start:
-            prot["zStackValues"] = list(np.arange(start, end, -spacing))
-        else:
-            prot["zStackValues"] = list(np.arange(start, end, spacing))
+            "zStack": True,        
+            "zStackValues": list(np.arange(start, end, spacing)),   }
         try:
             f = self.acquirezstack(prot) # TBD: rewrite acquirezstack
             newz = self.getOptimalFocusDepth(f, prot["zStackValues"])
