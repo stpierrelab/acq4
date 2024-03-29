@@ -7,7 +7,7 @@ build
 tempLog.txt
 .idea
 acq4.egg-info
-!config/
 config/*
+!config/*.cfg
 !config/example/
 crash.log
