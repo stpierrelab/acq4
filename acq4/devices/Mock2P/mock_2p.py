@@ -8,7 +8,7 @@ WIDTH = 512
 HEIGHT = 512
 
 
-class TestCamera(Camera):
+class Mock2P(Camera):
     def __init__(self, manager, config, name):
         self.camLock = Mutex()
         self.params = OrderedDict(
